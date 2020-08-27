@@ -25,13 +25,13 @@ public class Homework03_01 {
             if (nTry > ranNum) System.out.println("Много");
             if (nTry == ranNum) System.out.println("Число угадано");
         }
-            System.out.println("Хотите снова сыграть в игру? 1 - Да / 2 - Нет");
-            nTry = scanner.nextInt();
-            if (nTry == 1) playLevel();
-            else System.out.println("Завершение игры");
+        System.out.println("Хотите снова сыграть в игру? 1 - Да / 2 - Нет");
+        nTry = scanner.nextInt();
+        if (nTry == 1) playLevel();
+        else System.out.println("Завершение игры");
 
-                }
-            }
+    }
+}
 
 
 
