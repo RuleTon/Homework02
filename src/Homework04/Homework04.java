@@ -47,7 +47,7 @@ public class Homework04 {
     public static boolean checkWin(char symb) {
 
         for (int i = 0; i<3; i++) {
-            for (int j = 0; j < 3; j++) {
+
                 if ((map[i][0] == symb && map[i][1] == symb &&
                         map[i][2] == symb) ||
                         (map[0][i] == symb && map[1][i] == symb &&
@@ -57,7 +57,6 @@ public class Homework04 {
                     return true;
                 return false;
             }
-        }
 
 
         return false;
