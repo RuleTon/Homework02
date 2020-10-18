@@ -1,25 +1,31 @@
 package NetworkServer.server.chat.handler;
 
+import NetworkClientServer.clientserver.Command;
+import NetworkClientServer.clientserver.CommandType;
+import NetworkClientServer.clientserver.commands.AuthCommandData;
+import NetworkClientServer.clientserver.commands.PrivateMessageCommandData;
+import NetworkClientServer.clientserver.commands.PublicMessageCommandData;
 import NetworkServer.server.chat.MyServer;
+import sun.plugin2.liveconnect.ArgumentHelper;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.IOException;
+import java.net.CookieHandler;
 import java.net.Socket;
 
 public class ClientHandler {
 
-    private static final String AUTH_CMD_PREFIX = "/auth";
-    private static final String AUTHOK_CMD_PREFIX = "/authok";
-    private static final String AUTHERR_CMD_PREFIX = "/autherr";
-
     private final MyServer myServer;
     private final Socket clientSocket;
 
-    private DataInputStream in;
-    private DataOutputStream out;
+    
 
     private String username;
+    private DataOutputStream out;
+    private Object in;
 
     public ClientHandler(MyServer myServer, Socket clientSocket) {
         this.myServer = myServer;
@@ -52,47 +58,103 @@ public class ClientHandler {
 
     private void readMessages() throws IOException {
         while (true) {
-            String message = in.readUTF();
-            System.out.println("message from " + username + ": " + message);
-            if (message.startsWith("/end")) {
-                return;
+            Command command = readCommand();
+            if (command == null) {
+                continue;
             }
-            myServer.broadcastMessage(message, this);
+            switch (command.getType()) {
+                case END:
+                    return;
+                case PRIVATE_MESSAGE: {
+                   PrivateMessageCommandData data = (PrivateMessageCommandData) command.getData();
+                   String recipient = data.getReceiver();
+                   String privateMessage = data.getMessage();
+                   myServer.sendPrivateMessage(recipient, Command.messageInfoCommand(privateMessage, username));
+                   break;
+                }
+                case PUBLIC_MESSAGE:{
+                    PublicMessageCommandData data = (PublicMessageCommandData) command.getData();
+                    String message = data.getMessage();
+                    String sender = data.getSender();
+                    myServer.broadcastMessage(this, Command.messageInfoCommand(message, sender ));
+                    break;
+
+                }
+                default:
+                    System.err.println("Unknown command: " + command.getType());
+
+            }
+
+        }
+    }
+
+    private Command readCommand() throws IOException {
+        try {
+            return (Command) in.readObject();
+
+        }
+        catch (ClassNotFoundException e) {
+            String errorMessage = "Unknown type object!";
+            System.err.println(errorMessage);
+            e.printStackTrace();
+            sendMessage(Command.errorCommand(errorMessage));
+            return null;
         }
     }
 
     private void authentication() throws IOException {
         while (true) {
-            String message = in.readUTF();
-            if (message.startsWith(AUTH_CMD_PREFIX)) {
-                String[] parts = message.split("\\s+", 3);// один пробел и более
-                String login = parts[1];
-                String password = parts[2];
-                this.username = myServer.getAuthService().getUsernameByLoginAndPassword(login, password);
-                if (username != null) {
-                    if (myServer.isNicknameAlreadyBusy(username)) {
-                        out.writeUTF(AUTHERR_CMD_PREFIX + " Login and password are already used!");
-                    }
-                    out.writeUTF(AUTHOK_CMD_PREFIX + " " + username);
-                    myServer.broadcastMessage(username + " joined to chat!", this);
-                    myServer.subscribe(this);
-                    break;
-                } else {
-                    out.writeUTF(AUTHERR_CMD_PREFIX + " Login and/or password are invalid! Please, try again");
-                }
-            } else {
-                out.writeUTF(AUTHERR_CMD_PREFIX + " /auth command is required!");
+            Command command = readCommand();
+            if (command == null) {
+                continue;
             }
+
+            if (command.getType() == CommandType.AUTH) {
+             boolean isSuccessAuth = processAuthCommand(command);
+             if (isSuccessAuth) {
+                 break;
+             }
+
+            }
+            else
+                {
+                sendMessage(Command.authErrorCommand(" Auth is required!"));
+            }
+
         }
     }
+
 
     private void closeConnection() throws IOException {
         myServer.unsubscribe(this);
         clientSocket.close();
     }
 
+    private boolean   processAuthCommand(Command command) throws IOException {
+        AuthCommandData cmdData;
+        cmdData = (AuthCommandData) command.getData();
+        String login = cmdData.getLogin();
+        String password = cmdData.getPassword();
+        this.username = myServer.getAuthService().getUsernameByLoginAndPassword(login, password);
+        if (username != null) {
+            if (myServer.isNicknameAlreadyBusy(username)) {
+                sendMessage(Command.authErrorCommand("Login and password are already used!"));
+                return false;
+            }
+            sendMessage(Command.authOkCommand(username));
+            String message = username + "joined to chat!";
+            myServer.broadcastMessage(this, Command.messageInfoCommand(message, null));
+            myServer.subscribe(this);
+            return true;
+        } else {
+            sendMessage(Command.authErrorCommand(" Login and/or password are invalid! Please, try again"));
+            return false;
+        }
 
-    public void sendMessage(String message) throws IOException {
-        out.writeUTF(message);
+    }
+
+    public void sendMessage(Command command) throws IOException {
+        out.writeObject();
     }
 }
+

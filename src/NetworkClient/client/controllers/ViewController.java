@@ -10,6 +10,7 @@ import NetworkClient.client.NetworkChatClient;
 import NetworkClient.client.models.Network;
 
 import java.io.IOException;
+import java.util.List;
 
 public class ViewController {
 
@@ -55,5 +56,14 @@ public class ViewController {
     public void appendMessage(String message) {
         chatHistory.appendText(message);
         chatHistory.appendText(System.lineSeparator());
+    }
+
+    public void showError(String title, String message) {
+        NetworkChatClient.showNetworkError(message, title);
+
+    }
+
+    public void updateUsers(List<String> users) {
+        usersList.setItems(FXCollections.observableArrayList(users));
     }
 }

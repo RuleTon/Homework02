@@ -1,5 +1,6 @@
 package NetworkServer.server.chat;
 
+import NetworkClientServer.clientserver.Command;
 import NetworkServer.server.chat.auth.AuthService;
 import NetworkServer.server.chat.auth.BaseAuthService;
 import NetworkServer.server.chat.handler.ClientHandler;
@@ -56,24 +57,24 @@ public class MyServer {
         return authService;
     }
 
-    public synchronized void broadcastMessage(String message, ClientHandler sender) throws IOException {
+    public synchronized void broadcastMessage(ClientHandler sender, Command command) throws IOException {
         for (ClientHandler client : clients) {
             if (client == sender) {
                 continue;
             }
-            client.sendMessage(message);
+            client.sendMessage(command);
         }
     }
 
-    public synchronized void subscribe(ClientHandler handler) {
-        clients.add(handler);
+    public synchronized void sendPrivateMessage(String recipient, Command command) throws IOException {
+        for (ClientHandler client : clients) {
+            if (client.getUsername().equals(recipient)) {
+                client.sendMessage(command);
+            }
+        }
     }
 
-    public synchronized void unsubscribe(ClientHandler handler) {
-        clients.remove(handler);
-    }
-
-    public synchronized boolean isNicknameAlreadyBusy(String username) {
+    public synchronized boolean isNicknameAlreadyBusy (String username) {
         for (ClientHandler client : clients) {
             if (client.getUsername().equals(username)) {
                 return true;
@@ -81,5 +82,30 @@ public class MyServer {
         }
         return false;
     }
+
+    public synchronized void subscribe(ClientHandler handler) throws IOException {
+
+        clients.add(handler);
+        List<String> usernames = getAllUsernames();
+        broadcastMessage(null, Command.updateUsersListCommand(usernames));
+
+    }
+
+    public synchronized void unsubscribe(ClientHandler handler) throws IOException {
+
+        clients.remove(handler);
+        List<String> usernames = getAllUsernames();
+        broadcastMessage(null, Command.updateUsersListCommand(usernames));
+    }
+
+    private List<String> getAllUsernames() {
+        List<String> usernames = new ArrayList<>();
+        for (String username : usernames) {
+            usernames.add(username);
+        }
+        return usernames;
+    }
+
+
 
 }
